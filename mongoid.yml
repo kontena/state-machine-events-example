@@ -1,0 +1,26 @@
+development:
+  clients:
+    default:
+      uri: <%= ENV['MONGODB_URI'] || 'mongodb://localhost:27017/state_machine_events_example' %>
+  options:
+    raise_not_found_error: false
+    use_utc: true
+test:
+  clients:
+    default:
+      uri: <%= ENV['MONGODB_URI'] || 'mongodb://localhost:27017/state_machine_events_example_test' %>
+      options:
+        read:
+          mode: :primary
+        max_pool_size: 1
+  options:
+    use_utc: true
+    raise_not_found_error: false
+
+production:
+  clients:
+    default:
+      uri: <%= ENV['MONGODB_URI'] %>
+  options:
+    use_utc: true
+    raise_not_found_error: false

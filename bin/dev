@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+PORT="${PORT:-8000}"
+RACK_ENV=development
+bundle exec rerun --pattern="**/*.{rb}" "puma -p $PORT ./config.ru"
