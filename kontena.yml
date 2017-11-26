@@ -1,18 +1,36 @@
-stack: kontena/state-machine-events-example
-version: 1.0.0
-expose: api
-api:
-    build: .
-    image: "cloud-registry.kontena.io/account-api:${tag}"
+stack: kontena/state-machine-events
+version: 1.0.4
+services:
+  mongodb:
+    image: mongo:3.2
+    command: mongod --smallfiles
+    stateful: true
+    health_check:
+      protocol: tcp
+      port: 27017
+  lb:
+    image: kontena/lb:latest
+    instances: 3
+    ports:
+      - 80:80
+  api:
+    build: ./api
+    image: "kontena/state-machine-events-example:latest"
     command: bundle exec bin/prod
     instances: 3
     secrets:
-      - secret: mongodb_uri
-        name: MONGODB_URI
-        type: env
-      - secret: rabbitmq_uri
+      - secret: harbur-rabbitmq-cluster-eventbus-uri
         name: RABBITMQ_URI
         type: env
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/state_machine_events_example
+      - KONTENA_LB_MODE=http
+      - KONTENA_LB_BALANCE=roundrobin
+      - KONTENA_LB_INTERNAL_PORT=8000
+      - KONTENA_LB_VIRTUAL_PATH=/api
+    links:
+      - mongodb:mongodb
+      - lb
     health_check:
       protocol: http
       port: 8000
@@ -22,3 +40,29 @@ api:
       timeout: 5
     deploy:
       wait_for_port: 8000
+  ui:
+    build: ./ui
+    image: "kontena/state-machine-events-ui:latest"
+    command: node index.js
+    instances: 3
+    secrets:
+      - secret: harbur-rabbitmq-cluster-eventbus-uri
+        name: RABBITMQ_URI
+        type: env
+    environment:
+      - KONTENA_LB_MODE=http
+      - KONTENA_LB_BALANCE=source
+      - KONTENA_LB_INTERNAL_PORT=9000
+      - KONTENA_LB_VIRTUAL_PATH=/
+    links:
+      - lb
+      - mongodb:mongodb
+    health_check:
+      protocol: http
+      port: 9000
+      interval: 20
+      uri: /health
+      initial_delay: 30
+      timeout: 5
+    deploy:
+      wait_for_port: 9000

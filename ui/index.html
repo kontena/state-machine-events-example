@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+    <head>
+      <style>
+        li {
+          list-style: none;
+        }
+      </style>
+    </head>
+    <body>
+        <h1>Products</h1>
+        <ul id="aggregates"></ul>
+        <ul id="products"></ul>
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+          function handleMessage(msg) {
+            var data = JSON.parse(msg);
+
+            if (data.entity_type == 'Product') {
+              var id = 'products-' + data.entity_id;
+              var jsonPre = document.getElementById(id);
+
+              if (!jsonPre) {
+                jsonPre = document.createElement('pre');
+                jsonPre.id = id;
+
+                var listEntry = document.createElement('li');
+                listEntry.appendChild(jsonPre);
+
+                var list = document.getElementById('products');
+                list.appendChild(listEntry);
+                list.appendChild(
+                  document.createElement('hr')
+                )
+              }
+
+              var productData = {
+                id: data.entity_id,
+                name: data.entity_attributes.name,
+                price: data.entity_attributes.price,
+                inventory: data.entity_attributes.inventory,
+                state: {
+                  event: data.event,
+                  from: data.from,
+                  to: data.to
+                }
+              }
+              jsonPre.innerHTML = JSON.stringify(productData, null, 2);
+            }
+          }
+
+          function initSocket() {
+            var url = document.URL.replace('https://', 'wss://').replace('http://', 'ws://');
+            console.log("Connecting to socket.io at " + url);
+
+            var socket = io.connect(url);
+
+            socket.on('connect', function() {
+              socket.on('entity_events', handleMessage);
+            });
+          }
+
+          document.addEventListener("DOMContentLoaded", function(event) {
+            initSocket();
+          });
+      </script>
+    </body>
+</html>
