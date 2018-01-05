@@ -1,5 +1,13 @@
 stack: kontena/state-machine-events
-version: 1.0.4
+version: 1.0.8
+variables:
+  num_instances:
+    type: integer
+    min: 1
+    default: 3
+    from:
+      env: NUM_INSTANCES
+      prompt: number of nodes
 services:
   mongodb:
     image: mongo:3.2
@@ -10,14 +18,14 @@ services:
       port: 27017
   lb:
     image: kontena/lb:latest
-    instances: 3
+    instances: ${num_instances}
     ports:
       - 80:80
   api:
     build: ./api
     image: "kontena/state-machine-events-example:latest"
     command: bundle exec bin/prod
-    instances: 3
+    instances: ${num_instances}
     secrets:
       - secret: harbur-rabbitmq-cluster-eventbus-uri
         name: RABBITMQ_URI
@@ -44,7 +52,7 @@ services:
     build: ./ui
     image: "kontena/state-machine-events-ui:latest"
     command: node index.js
-    instances: 3
+    instances: ${num_instances}
     secrets:
       - secret: harbur-rabbitmq-cluster-eventbus-uri
         name: RABBITMQ_URI

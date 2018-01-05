@@ -1,5 +1,6 @@
 ENV['RACK_ENV'] ||= 'development'
 
+require 'pp'
 require 'roda'
 require 'json'
 require 'aasm'
@@ -30,6 +31,17 @@ class Server < Roda
   route do |r|
     r.on 'health' do
       { status: 'OK' }
+    end
+
+    r.on 'events' do
+      r.get do
+        r.is do
+          handle_query do
+            EventBus.replay_events(prefix: request.params['prefix'])
+            { status: 'OK' }
+          end
+        end
+      end
     end
 
     r.on 'products' do

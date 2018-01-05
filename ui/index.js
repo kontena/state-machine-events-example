@@ -1,12 +1,29 @@
 const express = require('express');
+const fetch = require('node-fetch');
 const app = express();
 const server = require('http').createServer(app);
 const io = require('socket.io')(server);
 const amqp = require('amqplib/callback_api');
 const amqpUri = process.env.RABBITMQ_URI || 'amqp://localhost';
+const port = process.env.PORT || 9000;
+const apiUrl = process.env.API_URL || 'http://localhost:8000';
+const replayEventsUrl = `${apiUrl}/events?prefix=ui`;
 
-app.get('/', (req, res,next) => {
-    res.sendFile(__dirname + '/index.html');
+function listenEvents(ch, io, exchange, routing_key) {
+  ch.assertExchange(exchange, 'topic', { durable: true });
+
+  ch.assertQueue('', { exclusive: true }, (err, q) => {
+    ch.bindQueue(q.queue, exchange, routing_key);
+
+    ch.consume(q.queue, (msg) => {
+      io.emit(exchange, msg.content.toString());
+      console.log(" [x] %s:'%s'", msg.fields.routingKey, msg.content.toString());
+    }, { noAck: true });
+  });
+}
+
+app.get('/', (req, res, next) => {
+  res.sendFile(__dirname + '/index.html');
 });
 
 app.get('/health', (req, res,next) => {
@@ -14,25 +31,27 @@ app.get('/health', (req, res,next) => {
   res.send("{ status: 'OK' }");
 });
 
-io.on('connection', socket => {
-  console.log('socket connected');
-});
-
 amqp.connect(amqpUri, (err, conn) => {
   conn.createChannel((err, ch) => {
-    const exchange = 'entity_events';
+    // Listen for events published by API
+    listenEvents(ch, io, 'entity_events', 'entity_event.#');
 
-    ch.assertExchange(exchange, 'topic', { durable: true });
+    // Listen for events replayed by API that we requested
+    listenEvents(ch, io, 'entity_events', 'ui.entity_event.#');
 
-    ch.assertQueue('', { exclusive: true }, (err, q) => {
-      ch.bindQueue(q.queue, exchange, '#');
+    io.on('connection', socket => {
+      console.log(`socket ${socket.id} connected`);
 
-      ch.consume(q.queue, (msg) => {
-        io.emit(exchange, msg.content.toString());
-        console.log(" [x] %s:'%s'", msg.fields.routingKey, msg.content.toString());
-      }, { noAck: true });
+      socket.on('disconnect', () => {
+        console.log(`socket ${socket.id} disconnected`);
+      });
+
+      console.log(`Requesting replay of events from ${replayEventsUrl}`);
+      fetch(replayEventsUrl);
     });
   });
 });
 
-server.listen(9000);
+server.listen(9000, function() {
+  console.log(`server listening on port ${port}`);
+});

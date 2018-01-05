@@ -15,51 +15,71 @@
         <script>
           function handleMessage(msg) {
             var data = JSON.parse(msg);
+            console.log(data);
+
+            if (document.handledEvents[data.id]) {
+              return console.log("Already handled " + data.id)
+            }
+
+            var timestamp = Date.parse(data.created_at);
+            if (document.lastEventTimestamp && document.lastEventTimestamp > timestamp) {
+              return console.log("Event " + data.id + " has earlier timestamp than most recent event");
+            }
+
+            document.handledEvents[data.id] = true;
+            document.lastEventTimestamp = timestamp;
 
             if (data.entity_type == 'Product') {
-              var id = 'products-' + data.entity_id;
-              var jsonPre = document.getElementById(id);
-
-              if (!jsonPre) {
-                jsonPre = document.createElement('pre');
-                jsonPre.id = id;
-
-                var listEntry = document.createElement('li');
-                listEntry.appendChild(jsonPre);
-
-                var list = document.getElementById('products');
-                list.appendChild(listEntry);
-                list.appendChild(
-                  document.createElement('hr')
-                )
-              }
-
-              var productData = {
-                id: data.entity_id,
-                name: data.entity_attributes.name,
-                price: data.entity_attributes.price,
-                inventory: data.entity_attributes.inventory,
-                state: {
-                  event: data.event,
-                  from: data.from,
-                  to: data.to
-                }
-              }
-              jsonPre.innerHTML = JSON.stringify(productData, null, 2);
+              handleProduct(data);
             }
+          }
+
+          function handleProduct(data) {
+            var id = 'products-' + data.entity_id;
+            var jsonPre = document.getElementById(id);
+
+            if (!jsonPre) {
+              jsonPre = document.createElement('pre');
+              jsonPre.id = id;
+
+              var listEntry = document.createElement('li');
+              listEntry.appendChild(jsonPre);
+
+              var list = document.getElementById('products');
+              list.appendChild(listEntry);
+              list.appendChild(
+                document.createElement('hr')
+              )
+            }
+
+            var productData = {
+              id: data.entity_id,
+              name: data.entity_attributes.name,
+              price: data.entity_attributes.price,
+              inventory: data.entity_attributes.inventory,
+              state: {
+                event: data.event,
+                from: data.from,
+                to: data.to
+              }
+            }
+            jsonPre.innerHTML = JSON.stringify(productData, null, 2);
           }
 
           function initSocket() {
             var url = document.URL.replace('https://', 'wss://').replace('http://', 'ws://');
             console.log("Connecting to socket.io at " + url);
 
-            var socket = io.connect(url);
+            document.socket = io.connect(url);
 
-            socket.on('connect', function() {
-              socket.on('entity_events', handleMessage);
+            document.socket.on('connect', function() {
+              console.log("socket " + document.socket.id + " connected")
+              document.socket.on('entity_events', handleMessage);
             });
           }
 
+          document.handledEvents = {};
+          document.lastEventTimestamp = null;
           document.addEventListener("DOMContentLoaded", function(event) {
             initSocket();
           });
