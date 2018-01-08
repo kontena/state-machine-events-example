@@ -13,7 +13,7 @@ class Product
   aasm(column: :state, with_klass: StateTracking) do
     enable_tracking!
 
-    state :initialized, intitial: true
+    state :initialized, initial: true
     state :created
     state :in_stock
     state :out_of_stock
